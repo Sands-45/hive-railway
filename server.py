@@ -9,6 +9,7 @@ from typing import Dict, Any, Optional
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -20,6 +21,15 @@ app = FastAPI(
     title="HIVE Agent Framework API",
     description="HTTP API for running and creating HIVE agents",
     version="0.2.0"
+)
+
+# Allow browser clients to call the API (handles CORS preflight OPTIONS).
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Request/Response Models
