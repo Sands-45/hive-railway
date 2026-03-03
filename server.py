@@ -8,7 +8,7 @@ import json
 from typing import Dict, Any, Optional
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -46,6 +46,54 @@ class AgentCreateResponse(BaseModel):
     message: str
     agent_path: Optional[str] = None
     error: Optional[str] = None
+
+def _create_agent_impl(
+    agent_name: str,
+    goal: str,
+    description: Optional[str] = None
+) -> AgentCreateResponse:
+    agent_name = agent_name.replace(" ", "_").lower()
+    if not agent_name.replace("_", "").replace("-", "").isalnum():
+        raise HTTPException(400, "Invalid agent name")
+
+    agent_path = Path(f"/app/exports/{agent_name}")
+    if agent_path.exists():
+        raise HTTPException(409, f"Agent '{agent_name}' exists")
+
+    agent_path.mkdir(parents=True, exist_ok=True)
+
+    config = {
+        "name": agent_name,
+        "version": "1.0.0",
+        "description": description or goal,
+        "goal": goal,
+        "type": "api_generated"
+    }
+
+    with open(agent_path / "agent.json", "w") as f:
+        json.dump(config, f, indent=2)
+
+    code = f'''from typing import Dict, Any
+
+def run(input_data: Dict[str, Any]) -> Dict[str, Any]:
+    return {{
+        "status": "success",
+        "agent": "{agent_name}",
+        "goal": "{goal}",
+        "input": input_data,
+        "note": "Basic template agent"
+    }}
+'''
+
+    with open(agent_path / "__init__.py", "w") as f:
+        f.write(code)
+
+    return AgentCreateResponse(
+        agent_name=agent_name,
+        status="success",
+        message=f"Created! Run with POST /agents/run/{agent_name}",
+        agent_path=str(agent_path)
+    )
 
 @app.get("/health")
 async def health_check():
@@ -111,47 +159,10 @@ async def list_agents():
 async def create_agent(request: AgentCreateRequest):
     """Create a new agent from a goal"""
     try:
-        agent_name = request.agent_name.replace(" ", "_").lower()
-        if not agent_name.replace("_", "").replace("-", "").isalnum():
-            raise HTTPException(400, "Invalid agent name")
-        
-        agent_path = Path(f"/app/exports/{agent_name}")
-        if agent_path.exists():
-            raise HTTPException(409, f"Agent '{agent_name}' exists")
-        
-        agent_path.mkdir(parents=True, exist_ok=True)
-        
-        config = {
-            "name": agent_name,
-            "version": "1.0.0",
-            "description": request.description or request.goal,
-            "goal": request.goal,
-            "type": "api_generated"
-        }
-        
-        with open(agent_path / "agent.json", "w") as f:
-            json.dump(config, f, indent=2)
-        
-        code = f'''from typing import Dict, Any
-
-def run(input_data: Dict[str, Any]) -> Dict[str, Any]:
-    return {{
-        "status": "success",
-        "agent": "{agent_name}",
-        "goal": "{request.goal}",
-        "input": input_data,
-        "note": "Basic template agent"
-    }}
-'''
-        
-        with open(agent_path / "__init__.py", "w") as f:
-            f.write(code)
-        
-        return AgentCreateResponse(
-            agent_name=agent_name,
-            status="success",
-            message=f"Created! Run with POST /agents/run/{agent_name}",
-            agent_path=str(agent_path)
+        return _create_agent_impl(
+            agent_name=request.agent_name,
+            goal=request.goal,
+            description=request.description
         )
     except HTTPException:
         raise
@@ -162,6 +173,15 @@ def run(input_data: Dict[str, Any]) -> Dict[str, Any]:
             message="Failed",
             error=str(e)
         )
+
+@app.get("/agents/create")
+async def create_agent_root_requires_post():
+    """Usage hint for browser GET requests"""
+    return {
+        "detail": "Use POST for creation.",
+        "path": "POST /agents/create",
+        "example_body": {"agent_name": "my_agent", "goal": "Analyze data"}
+    }
 
 @app.post("/agents/run/{agent_name}")
 async def run_agent_by_name(agent_name: str, input_data: Dict[str, Any]):
@@ -202,6 +222,15 @@ async def run_agent_by_name(agent_name: str, input_data: Dict[str, Any]):
         raise
     except Exception as e:
         return {"agent_name": agent_name, "status": "error", "error": str(e)}
+
+@app.get("/agents/run/{agent_name}")
+async def run_agent_requires_post(agent_name: str):
+    """Usage hint for browser GET requests"""
+    return {
+        "detail": "Use POST to run agents.",
+        "path": f"POST /agents/run/{agent_name}",
+        "example_body": {"task": "Hello HIVE!"}
+    }
 
 @app.get("/agents/{agent_name}")
 async def get_agent_info(agent_name: str):
