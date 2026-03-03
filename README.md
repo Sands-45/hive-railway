@@ -14,6 +14,16 @@ HIVE is an outcome-driven agent development framework that:
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/hive-railway)
 
+## Demo Agent
+
+The template ships with a built-in `demo_agent` so you can test immediately after deployment:
+
+```bash
+curl -X POST https://your-app.railway.app/agents/demo_agent/run \
+  -H "Content-Type: application/json" \
+  -d '{"task": "Hello HIVE!"}'
+```
+
 ## Manual Deployment Steps
 
 ### 1. Prerequisites
@@ -26,35 +36,9 @@ HIVE is an outcome-driven agent development framework that:
 
 ### 2. Deploy to Railway
 
-#### Option A: Using Railway CLI
-
-```bash
-# Install Railway CLI
-bun i -g @railway/cli
-
-# Login to Railway
-railway login
-
-# Clone this repository
-git clone https://github.com/YOUR_USERNAME/hive-railway-template.git
-cd hive-railway-template
-
-# Initialize Railway project
-railway init
-
-# Add environment variables
-railway variables set ANTHROPIC_API_KEY=sk-ant-xxxxx
-railway variables set DEFAULT_MODEL=claude-sonnet-4-20250514
-
-# Deploy
-railway up
-```
-
-#### Option B: Using Railway Dashboard
-
 1. Go to [Railway](https://railway.app)
 2. Click "New Project" → "Deploy from GitHub repo"
-3. Select this repository
+3. Select this repository / Template
 4. Configure environment variables (see below)
 5. Deploy!
 
@@ -107,15 +91,36 @@ Runs HIVE as a REST API you can call from your applications.
 - `GET /health` - Health check
 - `GET /agents` - List available agents
 - `POST /agents/run` - Run an agent
+- `POST /agents/create` - Create an agent
+- `POST /agents/my_agent` - Delete an agent
 
 **Example request:**
 ```bash
+# Quick start
 curl -X POST https://your-app.railway.app/agents/run \
   -H "Content-Type: application/json" \
   -d '{
     "agent_name": "my_agent",
     "input_data": {"task": "Analyze sales data"}
   }'
+  
+  # 1. Test demo agent (built-in)
+  curl -X POST https://your-app.railway.app/agents/demo_agent/run \
+    -d '{"task": "test"}'
+  
+  # 2. Create your own agent via API
+  curl -X POST https://your-app.railway.app/agents/create \
+    -d '{"agent_name": "my_agent", "goal": "Process data"}'
+  
+  # 3. Run your agent
+  curl -X POST https://your-app.railway.app/agents/my_agent/run \
+    -d '{"data": "sample"}'
+  
+  # 4. List all agents
+  curl https://your-app.railway.app/agents
+  
+  # 5. Delete if needed
+  curl -X DELETE https://your-app.railway.app/agents/my_agent
 ```
 
 ### Mode 2: TUI Dashboard
@@ -135,24 +140,6 @@ hive-railway/
 ├── railway.json            # Railway configuration
 ├── .env.example            # Environment variables template
 └── README.md              # This file
-```
-
-## Local Testing Before Railway
-
-Test locally with Docker Compose:
-
-```bash
-# Copy environment variables
-cp .env.example .env
-
-# Edit .env with your API keys
-nano .env
-
-# Build and run
-docker-compose up
-
-# API will be available at http://localhost:8000
-curl http://localhost:8000/health
 ```
 
 ## Creating Agents
@@ -184,13 +171,6 @@ git commit -m "Add my_agent"
 git push
 
 # Railway will auto-deploy
-```
-
-### Method 2: Using Templates
-
-Copy from HIVE examples:
-```bash
-cp -r hive/examples/templates/sales_agent exports/
 ```
 
 ## Monitoring and Observability

@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 # Add HIVE to path
@@ -18,8 +18,8 @@ sys.path.insert(0, str(Path(__file__).parent / "exports"))
 
 app = FastAPI(
     title="HIVE Agent Framework API",
-    description="HTTP API for running HIVE agents",
-    version="0.1.0"
+    description="HTTP API for running and creating HIVE agents",
+    version="0.2.0"
 )
 
 # Request/Response Models
@@ -34,7 +34,19 @@ class AgentRunResponse(BaseModel):
     output: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
 
-# Endpoints
+class AgentCreateRequest(BaseModel):
+    agent_name: str
+    goal: str
+    description: Optional[str] = None
+    model: Optional[str] = None
+
+class AgentCreateResponse(BaseModel):
+    agent_name: str
+    status: str
+    message: str
+    agent_path: Optional[str] = None
+    error: Optional[str] = None
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint for Railway"""
@@ -50,14 +62,26 @@ async def health_check():
 @app.get("/")
 async def root():
     """Root endpoint with API info"""
+    domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "https://your-app.railway.app")
     return {
         "name": "HIVE Agent Framework API",
-        "version": "0.1.0",
+        "version": "0.2.0",
+        "status": "running",
+        "new_feature": "✨ Create agents via API!",
+        "quick_test": {
+            "curl": f'curl -X POST {domain}/agents/demo_agent/run -H "Content-Type: application/json" -d \'{{"task": "Hello!"}}\''
+        },
+        "create_agent": {
+            "curl": f'curl -X POST {domain}/agents/create -H "Content-Type: application/json" -d \'{{"agent_name": "my_agent", "goal": "Analyze data"}}\''
+        },
         "endpoints": {
-            "health": "/health",
-            "list_agents": "/agents",
-            "run_agent": "/agents/run",
-            "docs": "/docs"
+            "health": "GET /health",
+            "list_agents": "GET /agents",
+            "create_agent": "POST /agents/create - NEW!",
+            "run_agent": "POST /agents/{name}/run",
+            "get_agent": "GET /agents/{name}",
+            "delete_agent": "DELETE /agents/{name}",
+            "docs": "GET /docs"
         }
     }
 
@@ -70,73 +94,141 @@ async def list_agents():
     if exports_dir.exists():
         for agent_dir in exports_dir.iterdir():
             if agent_dir.is_dir() and (agent_dir / "agent.json").exists():
-                agents.append({
-                    "name": agent_dir.name,
-                    "path": str(agent_dir)
-                })
+                try:
+                    with open(agent_dir / "agent.json", "r") as f:
+                        config = json.load(f)
+                    agents.append({
+                        "name": agent_dir.name,
+                        "description": config.get("description", ""),
+                        "type": config.get("type", "unknown")
+                    })
+                except:
+                    agents.append({"name": agent_dir.name})
     
     return {"agents": agents, "count": len(agents)}
 
-@app.post("/agents/run", response_model=AgentRunResponse)
-async def run_agent(request: AgentRunRequest, background_tasks: BackgroundTasks):
-    """
-    Run a HIVE agent with provided input
-    
-    Example:
-    {
-        "agent_name": "my_agent",
-        "input_data": {"task": "Your task here"},
-        "stream": false
-    }
-    """
+@app.post("/agents/create", response_model=AgentCreateResponse)
+async def create_agent(request: AgentCreateRequest):
+    """Create a new agent from a goal"""
     try:
-        # Import HIVE runner
-        from framework.runner import AgentRunner
+        agent_name = request.agent_name.replace(" ", "_").lower()
+        if not agent_name.replace("_", "").replace("-", "").isalnum():
+            raise HTTPException(400, "Invalid agent name")
         
-        # Construct agent path
-        agent_path = Path(f"/app/exports/{request.agent_name}")
+        agent_path = Path(f"/app/exports/{agent_name}")
+        if agent_path.exists():
+            raise HTTPException(409, f"Agent '{agent_name}' exists")
         
-        if not agent_path.exists():
-            raise HTTPException(
-                status_code=404,
-                detail=f"Agent '{request.agent_name}' not found"
-            )
+        agent_path.mkdir(parents=True, exist_ok=True)
         
-        # Run the agent
-        runner = AgentRunner(str(agent_path))
-        result = runner.run(input_data=request.input_data)
+        config = {
+            "name": agent_name,
+            "version": "1.0.0",
+            "description": request.description or request.goal,
+            "goal": request.goal,
+            "type": "api_generated"
+        }
         
-        return AgentRunResponse(
-            agent_name=request.agent_name,
+        with open(agent_path / "agent.json", "w") as f:
+            json.dump(config, f, indent=2)
+        
+        code = f'''from typing import Dict, Any
+
+def run(input_data: Dict[str, Any]) -> Dict[str, Any]:
+    return {{
+        "status": "success",
+        "agent": "{agent_name}",
+        "goal": "{request.goal}",
+        "input": input_data,
+        "note": "Basic template agent"
+    }}
+'''
+        
+        with open(agent_path / "__init__.py", "w") as f:
+            f.write(code)
+        
+        return AgentCreateResponse(
+            agent_name=agent_name,
             status="success",
-            output=result
+            message=f"Created! Run with POST /agents/{agent_name}/run",
+            agent_path=str(agent_path)
         )
-        
+    except HTTPException:
+        raise
     except Exception as e:
-        return AgentRunResponse(
+        return AgentCreateResponse(
             agent_name=request.agent_name,
             status="error",
+            message="Failed",
             error=str(e)
         )
 
 @app.post("/agents/{agent_name}/run")
-async def run_agent_by_name(
-    agent_name: str,
-    input_data: Dict[str, Any]
-):
-    """Simplified endpoint to run agent by name"""
-    request = AgentRunRequest(
-        agent_name=agent_name,
-        input_data=input_data
-    )
-    return await run_agent(request, BackgroundTasks())
+async def run_agent_by_name(agent_name: str, input_data: Dict[str, Any]):
+    """Run an agent"""
+    try:
+        if agent_name == "demo_agent":
+            return {
+                "agent_name": "demo_agent",
+                "status": "success",
+                "output": {
+                    "message": "Demo agent works! 🎉",
+                    "input": input_data,
+                    "next": "Create agents via POST /agents/create"
+                }
+            }
+        
+        agent_path = Path(f"/app/exports/{agent_name}")
+        if not agent_path.exists():
+            raise HTTPException(404, f"Agent '{agent_name}' not found")
+        
+        init_file = agent_path / "__init__.py"
+        if init_file.exists():
+            import importlib.util
+            spec = importlib.util.spec_from_file_location(agent_name, init_file)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            
+            if hasattr(module, 'run'):
+                return {
+                    "agent_name": agent_name,
+                    "status": "success",
+                    "output": module.run(input_data)
+                }
+        
+        raise HTTPException(500, "Agent missing run() function")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        return {"agent_name": agent_name, "status": "error", "error": str(e)}
 
-# WebSocket endpoint for streaming (optional)
-# @app.websocket("/agents/{agent_name}/stream")
-# async def stream_agent(websocket: WebSocket, agent_name: str):
-#     await websocket.accept()
-#     # Implement streaming logic here
-#     pass
+@app.get("/agents/{agent_name}")
+async def get_agent_info(agent_name: str):
+    """Get agent info"""
+    if agent_name == "demo_agent":
+        return {"name": "demo_agent", "type": "built-in", "protected": True}
+    
+    agent_path = Path(f"/app/exports/{agent_name}")
+    if not agent_path.exists():
+        raise HTTPException(404, "Agent not found")
+    
+    with open(agent_path / "agent.json", "r") as f:
+        return json.load(f)
+
+@app.delete("/agents/{agent_name}")
+async def delete_agent(agent_name: str):
+    """Delete an agent"""
+    if agent_name == "demo_agent":
+        raise HTTPException(403, "Cannot delete demo_agent")
+    
+    agent_path = Path(f"/app/exports/{agent_name}")
+    if not agent_path.exists():
+        raise HTTPException(404, "Agent not found")
+    
+    import shutil
+    shutil.rmtree(agent_path)
+    return {"status": "success", "message": f"Deleted {agent_name}"}
 
 if __name__ == "__main__":
     import uvicorn

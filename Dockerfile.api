@@ -35,6 +35,9 @@ RUN mkdir -p /app/exports \
 # Copy HTTP API wrapper
 COPY server.py /app/server.py
 
+# Copy demo agent
+COPY exports/ /app/exports/
+
 # Copy entrypoint script
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
