@@ -1,0 +1,38 @@
+{
+  "name": "HIVE Agent Framework",
+  "description": "Self-improving AI agent framework with goal-driven development and automatic evolution",
+  "repository": "https://github.com/YOUR_USERNAME/hive-railway-template",
+  "variables": {
+    "ANTHROPIC_API_KEY": {
+      "description": "Anthropic API key for Claude models (or use OPENAI_API_KEY / GOOGLE_API_KEY)",
+      "required": false
+    },
+    "OPENAI_API_KEY": {
+      "description": "OpenAI API key for GPT models",
+      "required": false
+    },
+    "GOOGLE_API_KEY": {
+      "description": "Google API key for Gemini models",
+      "required": false
+    },
+    "DEFAULT_MODEL": {
+      "description": "Default LLM model to use",
+      "default": "claude-sonnet-4-20250514",
+      "required": false
+    },
+    "PORT": {
+      "description": "Port for HTTP API",
+      "default": "8000",
+      "required": false
+    }
+  },
+  "volumes": [
+    {
+      "name": "hive-data",
+      "mountPath": "/app/data",
+      "description": "Persistent storage for agents, credentials, and logs"
+    }
+  ],
+  "healthcheckPath": "/health",
+  "healthcheckTimeout": 10
+}

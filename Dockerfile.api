@@ -1,0 +1,46 @@
+# HIVE Agent Framework - Railway HTTP API Deployment
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv package manager
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.cargo/bin:$PATH"
+
+WORKDIR /app
+
+# Clone HIVE repository
+RUN git clone https://github.com/aden-hive/hive.git .
+
+# Install dependencies
+RUN uv sync
+
+# Install FastAPI and Uvicorn for HTTP API
+RUN uv pip install fastapi uvicorn python-multipart
+
+# Create directories
+RUN mkdir -p /app/exports \
+    && mkdir -p /app/.hive/credentials \
+    && mkdir -p /app/data
+
+# Copy HTTP API wrapper (create this file separately)
+COPY server.py /app/server.py
+
+# Expose port
+EXPOSE ${PORT:-8000}
+
+ENV PYTHONUNBUFFERED=1
+ENV HIVE_DATA_DIR=/app/data
+ENV HIVE_CREDENTIALS_DIR=/app/.hive/credentials
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
+
+# Run HTTP API server
+CMD uvicorn server:app --host 0.0.0.0 --port ${PORT:-8000}

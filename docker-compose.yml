@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  hive:
+    build: .
+    container_name: hive-agent-framework
+    environment:
+      # LLM Provider API Keys (configure these in Railway)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      
+      # HIVE Configuration
+      - HIVE_DATA_DIR=/app/data
+      - HIVE_CREDENTIALS_DIR=/app/.hive/credentials
+      - PYTHONUNBUFFERED=1
+      
+      # Optional: Default LLM model
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-claude-sonnet-4-20250514}
+    
+    volumes:
+      # Persist agent exports
+      - ./exports:/app/exports
+      
+      # Persist credentials
+      - ./credentials:/app/.hive/credentials
+      
+      # Persist data
+      - ./data:/app/data
+    
+    ports:
+      - "8000:8000"
+    
+    restart: unless-stopped
+    
+    # Override CMD if you want to run as HTTP server instead of TUI
+    # command: ["uv", "run", "python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
