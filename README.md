@@ -90,11 +90,11 @@ Runs HIVE as a REST API you can call from your applications.
 **Endpoints:**
 - `GET /health` - Health check
 - `GET /agents` - List available agents
-- `POST /agents/run/{agent_name}` - Run an agent
-- `POST /agents/create` - Create an agent
+- `POST /agents/run/{agent_name}` - Run an exported HIVE agent via orchestration
+- `POST /agents/create` - Create a runnable agent by cloning a HIVE example template
 - `DELETE /agents/manage/{agent_name}` - Delete an agent
 
-`POST /agents/create` creates an API-generated, goal-driven agent. When you run it, the server uses your configured LLM key (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GOOGLE_API_KEY`) to produce task-specific output.
+`POST /agents/run/{agent_name}` executes `uv run python -m <agent_name> run --input ...` so orchestration happens inside HIVE in `server.py`. `POST /agents/create` picks a runnable template from `/app/examples` (or `HIVE_CREATE_TEMPLATE`) and rewrites metadata (`agent_name`, `goal`, `description`).
 
 **Example request:**
 ```bash
@@ -107,11 +107,11 @@ curl -X POST https://your-app.railway.app/agents/run/my_agent \
   curl -X POST https://your-app.railway.app/agents/run/demo_agent \
     -d '{"task": "test"}'
   
-  # 2. Create your own agent via API
+  # 2. Create a runnable agent from a HIVE template
   curl -X POST https://your-app.railway.app/agents/create \
     -d '{"agent_name": "my_agent", "goal": "Process data"}'
   
-  # 3. Run your agent
+  # 3. Run your new orchestrated agent
   curl -X POST https://your-app.railway.app/agents/run/my_agent \
     -d '{"data": "sample"}'
   
