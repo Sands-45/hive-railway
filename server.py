@@ -174,15 +174,6 @@ async def create_agent(request: AgentCreateRequest):
             error=str(e)
         )
 
-@app.get("/agents/create")
-async def create_agent_root_requires_post():
-    """Usage hint for browser GET requests"""
-    return {
-        "detail": "Use POST for creation.",
-        "path": "POST /agents/create",
-        "example_body": {"agent_name": "my_agent", "goal": "Analyze data"}
-    }
-
 @app.post("/agents/run/{agent_name}")
 async def run_agent_by_name(agent_name: str, input_data: Dict[str, Any]):
     """Run an agent"""
@@ -222,15 +213,6 @@ async def run_agent_by_name(agent_name: str, input_data: Dict[str, Any]):
         raise
     except Exception as e:
         return {"agent_name": agent_name, "status": "error", "error": str(e)}
-
-@app.get("/agents/run/{agent_name}")
-async def run_agent_requires_post(agent_name: str):
-    """Usage hint for browser GET requests"""
-    return {
-        "detail": "Use POST to run agents.",
-        "path": f"POST /agents/run/{agent_name}",
-        "example_body": {"task": "Hello HIVE!"}
-    }
 
 @app.get("/agents/{agent_name}")
 async def get_agent_info(agent_name: str):
