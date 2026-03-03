@@ -1,7 +1,7 @@
 {
   "name": "HIVE Agent Framework",
   "description": "Self-improving AI agent framework with goal-driven development and automatic evolution",
-  "repository": "https://github.com/YOUR_USERNAME/hive-railway-template",
+  "repository": "https://github.com/Sands-45/hive-railway?tab=readme-ov-file",
   "variables": {
     "ANTHROPIC_API_KEY": {
       "description": "Anthropic API key for Claude models (or use OPENAI_API_KEY / GOOGLE_API_KEY)",

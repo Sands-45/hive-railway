@@ -1,4 +1,4 @@
-# HIVE Agent Framework - Railway Deployment
+# HIVE Agent Framework - Railway Deployment (Optimized)
 FROM python:3.11-slim
 
 # Install system dependencies
@@ -8,15 +8,19 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv package manager
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.cargo/bin:$PATH"
-
 # Set working directory
 WORKDIR /app
 
 # Clone HIVE repository
 RUN git clone https://github.com/aden-hive/hive.git .
+
+# Install uv package manager with explicit installation to /usr/local/bin
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    mv /root/.local/bin/uv /usr/local/bin/uv && \
+    mv /root/.local/bin/uvx /usr/local/bin/uvx || true
+
+# Verify uv installation
+RUN uv --version
 
 # Install dependencies using uv
 RUN uv sync
