@@ -231,13 +231,58 @@ def _build_run_arg_attempts(help_text: str, input_data: Dict[str, Any]) -> list[
     return attempts
 
 
+def _run_hive_cli(agent_path: Path, input_data: Dict[str, Any], env: Dict[str, str], timeout_seconds: int) -> Any:
+    payload_json = json.dumps(input_data)
+    attempts: list[list[str]] = [
+        ["uv", "run", "hive", "run", str(agent_path), "--input", payload_json],
+        ["uv", "run", "hive", "run", str(agent_path), payload_json],
+    ]
+    if "task" in input_data:
+        attempts.append(["uv", "run", "hive", "run", str(agent_path), "--task", str(input_data["task"])])
+
+    last_error = ""
+    for cmd in attempts:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(Path(__file__).parent),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+        )
+        if proc.returncode == 0:
+            output_text = (proc.stdout or proc.stderr or "").strip()
+            return _extract_json_from_stdout(output_text)
+
+        err = (proc.stderr or proc.stdout or "").strip()
+        last_error = err
+        # Keep trying all known invocation shapes before failing.
+        continue
+
+    raise HTTPException(
+        500,
+        (
+            f"HIVE orchestration run failed for '{agent_path.name}' via 'hive run'. "
+            f"Last error: {last_error or 'unknown error'}"
+        ),
+    )
+
+
 def _run_hive_orchestrated_agent(agent_name: str, input_data: Dict[str, Any]) -> Any:
-    # Real HIVE execution path: run exported package as a module.
+    # Primary execution path: stable HIVE CLI for exported agents.
+    agent_path = EXPORTS_DIR / agent_name
+    timeout_seconds = int(os.getenv("HIVE_RUN_TIMEOUT_SECONDS", "300"))
     prefix = ["uv", "run", "python", "-m", agent_name]
     env = os.environ.copy()
     existing_path = env.get("PYTHONPATH", "")
     exports_path = str(EXPORTS_DIR)
     env["PYTHONPATH"] = f"{exports_path}{os.pathsep}{existing_path}" if existing_path else exports_path
+
+    try:
+        return _run_hive_cli(agent_path, input_data, env, timeout_seconds)
+    except HTTPException:
+        # Fall back to module-level run signatures for maximum compatibility.
+        pass
 
     help_proc = subprocess.run(
         prefix + ["run", "--help"],
@@ -251,7 +296,6 @@ def _run_hive_orchestrated_agent(agent_name: str, input_data: Dict[str, Any]) ->
     attempts = _build_run_arg_attempts(help_text, input_data)
 
     last_error = ""
-    timeout_seconds = int(os.getenv("HIVE_RUN_TIMEOUT_SECONDS", "300"))
     for args in attempts:
         proc = subprocess.run(
             prefix + args,
@@ -267,13 +311,8 @@ def _run_hive_orchestrated_agent(agent_name: str, input_data: Dict[str, Any]) ->
         err = (proc.stderr or proc.stdout or "").strip()
         last_error = err
 
-        if _looks_like_run_argument_error(err):
-            continue
-
-        raise HTTPException(
-            500,
-            f"HIVE orchestration run failed for '{agent_name}'. {err}"
-        )
+        # Keep trying all known invocation shapes before failing.
+        continue
 
     raise HTTPException(
         500,
