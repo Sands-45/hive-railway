@@ -16,7 +16,7 @@ services:
       - PYTHONUNBUFFERED=1
       
       # Optional: Default LLM model
-      - DEFAULT_MODEL=${DEFAULT_MODEL:-claude-sonnet-4-20250514}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:gemini-2.5-flash}
     
     volumes:
       # Persist agent exports
