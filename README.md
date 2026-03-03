@@ -12,7 +12,7 @@ HIVE is an outcome-driven agent development framework that:
 
 ## Quick Deploy to Railway
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/hive-railway)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.com/deploy/hive-agent?referralCode=LBtbQR&utm_medium=integration&utm_source=template&utm_campaign=generic)
 
 ## Demo Agent
 
