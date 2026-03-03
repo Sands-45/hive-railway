@@ -11,8 +11,8 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Clone HIVE repository
-RUN git clone https://github.com/aden-hive/hive.git .
+# Clone official HIVE repository
+RUN git clone https://github.com/adenhq/hive.git .
 
 # Install uv package manager with explicit installation to /usr/local/bin
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \

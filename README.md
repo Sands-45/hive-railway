@@ -149,7 +149,7 @@ Once deployed, you'll need to build agents locally, then deploy them:
 
 ```bash
 # Clone HIVE locally
-git clone https://github.com/aden-hive/hive.git
+git clone https://github.com/adenhq/hive.git
 cd hive
 ./quickstart.sh
 
@@ -240,7 +240,7 @@ HIVE charges for:
 ## Support
 
 - HIVE Docs: https://docs.adenhq.com
-- HIVE GitHub: https://github.com/aden-hive/hive
+- HIVE GitHub: https://github.com/adenhq/hive
 - HIVE Discord: https://discord.com/invite/MXE49hrKDk
 - Railway Docs: https://docs.railway.app
 

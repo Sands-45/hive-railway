@@ -132,11 +132,34 @@ def _find_runnable_hive_template_dir() -> Path:
             if path.is_dir() and (path / "__main__.py").exists():
                 return path
 
+    # Fallback: repository layouts can vary. Find any runnable template folder.
+    fallback_candidates = []
+    for main_file in root.rglob("__main__.py"):
+        # Avoid using existing exports as templates.
+        if "exports" in main_file.parts:
+            continue
+        parent = main_file.parent
+        if (parent / "agent.json").exists():
+            fallback_candidates.append(parent)
+
+    if fallback_candidates:
+        preferred_names = [
+            preferred,
+            "support_ticket_agent",
+            "customer_support_agent",
+            "faq_agent",
+        ]
+        by_name = {p.name: p for p in fallback_candidates}
+        for name in preferred_names:
+            if name in by_name:
+                return by_name[name]
+        return sorted(fallback_candidates)[0]
+
     raise HTTPException(
         500,
         (
-            "No runnable HIVE template found under /app/examples. "
-            "Set HIVE_CREATE_TEMPLATE to a valid example folder name."
+            "No runnable HIVE template found. Expected a folder with __main__.py and agent.json "
+            "under /app/examples (or elsewhere in repo). Set HIVE_CREATE_TEMPLATE to a valid folder name."
         ),
     )
 
