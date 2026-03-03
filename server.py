@@ -69,7 +69,7 @@ async def root():
         "status": "running",
         "new_feature": "✨ Create agents via API!",
         "quick_test": {
-            "curl": f'curl -X POST {domain}/agents/demo_agent/run -H "Content-Type: application/json" -d \'{{"task": "Hello!"}}\''
+            "curl": f'curl -X POST {domain}/agents/run/demo_agent -H "Content-Type: application/json" -d \'{{"task": "Hello!"}}\''
         },
         "create_agent": {
             "curl": f'curl -X POST {domain}/agents/create -H "Content-Type: application/json" -d \'{{"agent_name": "my_agent", "goal": "Analyze data"}}\''
@@ -78,9 +78,9 @@ async def root():
             "health": "GET /health",
             "list_agents": "GET /agents",
             "create_agent": "POST /agents/create - NEW!",
-            "run_agent": "POST /agents/{name}/run",
+            "run_agent": "POST /agents/run/{name}",
             "get_agent": "GET /agents/{name}",
-            "delete_agent": "DELETE /agents/{name}",
+            "delete_agent": "DELETE /agents/manage/{name}",
             "docs": "GET /docs"
         }
     }
@@ -150,7 +150,7 @@ def run(input_data: Dict[str, Any]) -> Dict[str, Any]:
         return AgentCreateResponse(
             agent_name=agent_name,
             status="success",
-            message=f"Created! Run with POST /agents/{agent_name}/run",
+            message=f"Created! Run with POST /agents/run/{agent_name}",
             agent_path=str(agent_path)
         )
     except HTTPException:
@@ -163,7 +163,7 @@ def run(input_data: Dict[str, Any]) -> Dict[str, Any]:
             error=str(e)
         )
 
-@app.post("/agents/{agent_name}/run")
+@app.post("/agents/run/{agent_name}")
 async def run_agent_by_name(agent_name: str, input_data: Dict[str, Any]):
     """Run an agent"""
     try:
@@ -216,7 +216,7 @@ async def get_agent_info(agent_name: str):
     with open(agent_path / "agent.json", "r") as f:
         return json.load(f)
 
-@app.delete("/agents/{agent_name}")
+@app.delete("/agents/manage/{agent_name}")
 async def delete_agent(agent_name: str):
     """Delete an agent"""
     if agent_name == "demo_agent":

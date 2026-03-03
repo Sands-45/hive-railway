@@ -19,7 +19,7 @@ HIVE is an outcome-driven agent development framework that:
 The template ships with a built-in `demo_agent` so you can test immediately after deployment:
 
 ```bash
-curl -X POST https://your-app.railway.app/agents/demo_agent/run \
+curl -X POST https://your-app.railway.app/agents/run/demo_agent \
   -H "Content-Type: application/json" \
   -d '{"task": "Hello HIVE!"}'
 ```
@@ -90,22 +90,19 @@ Runs HIVE as a REST API you can call from your applications.
 **Endpoints:**
 - `GET /health` - Health check
 - `GET /agents` - List available agents
-- `POST /agents/run` - Run an agent
+- `POST /agents/run/{agent_name}` - Run an agent
 - `POST /agents/create` - Create an agent
-- `POST /agents/my_agent` - Delete an agent
+- `DELETE /agents/manage/{agent_name}` - Delete an agent
 
 **Example request:**
 ```bash
 # Quick start
-curl -X POST https://your-app.railway.app/agents/run \
+curl -X POST https://your-app.railway.app/agents/run/my_agent \
   -H "Content-Type: application/json" \
-  -d '{
-    "agent_name": "my_agent",
-    "input_data": {"task": "Analyze sales data"}
-  }'
+  -d '{"task": "Analyze sales data"}'
   
   # 1. Test demo agent (built-in)
-  curl -X POST https://your-app.railway.app/agents/demo_agent/run \
+  curl -X POST https://your-app.railway.app/agents/run/demo_agent \
     -d '{"task": "test"}'
   
   # 2. Create your own agent via API
@@ -113,14 +110,14 @@ curl -X POST https://your-app.railway.app/agents/run \
     -d '{"agent_name": "my_agent", "goal": "Process data"}'
   
   # 3. Run your agent
-  curl -X POST https://your-app.railway.app/agents/my_agent/run \
+  curl -X POST https://your-app.railway.app/agents/run/my_agent \
     -d '{"data": "sample"}'
   
   # 4. List all agents
   curl https://your-app.railway.app/agents
   
   # 5. Delete if needed
-  curl -X DELETE https://your-app.railway.app/agents/my_agent
+  curl -X DELETE https://your-app.railway.app/agents/manage/my_agent
 ```
 
 ### Mode 2: TUI Dashboard

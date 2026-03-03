@@ -35,12 +35,13 @@ RUN mkdir -p /app/exports \
 # Copy HTTP API wrapper
 COPY server.py /app/server.py
 
-# Copy demo agent
-COPY exports/ /app/exports/
-
 # Copy entrypoint script
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
+
+# Create demo agent directory and config
+RUN mkdir -p /app/exports/demo_agent && \
+    echo '{"name":"demo_agent","version":"1.0.0","description":"Built-in demo agent for testing","type":"built-in"}' > /app/exports/demo_agent/agent.json
 
 # Expose port
 EXPOSE ${PORT:-8000}
