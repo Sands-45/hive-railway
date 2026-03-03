@@ -94,6 +94,8 @@ Runs HIVE as a REST API you can call from your applications.
 - `POST /agents/create` - Create an agent
 - `DELETE /agents/manage/{agent_name}` - Delete an agent
 
+`POST /agents/create` creates an API-generated, goal-driven agent. When you run it, the server uses your configured LLM key (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GOOGLE_API_KEY`) to produce task-specific output.
+
 **Example request:**
 ```bash
 # Quick start
