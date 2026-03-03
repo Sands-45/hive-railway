@@ -94,7 +94,7 @@ Runs HIVE as a REST API you can call from your applications.
 - `POST /agents/create` - Create a runnable agent by cloning a HIVE example template
 - `DELETE /agents/manage/{agent_name}` - Delete an agent
 
-`POST /agents/run/{agent_name}` executes `uv run python -m <agent_name> run --input ...` so orchestration happens inside HIVE in `server.py`. `POST /agents/create` picks a runnable template from `/app/examples` (or `HIVE_CREATE_TEMPLATE`) and rewrites metadata (`agent_name`, `goal`, `description`).
+`POST /agents/run/{agent_name}` executes `uv run python -m <agent_name> run ...` so orchestration happens inside HIVE in `server.py`. The wrapper auto-detects supported run arguments from `--help` and falls back across common formats (`--input`, `--task`, positional JSON/text). `POST /agents/create` picks a runnable template from `/app/examples` (or `HIVE_CREATE_TEMPLATE`) and rewrites metadata (`agent_name`, `goal`, `description`).
 
 **Example request:**
 ```bash

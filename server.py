@@ -184,38 +184,104 @@ def _extract_json_from_stdout(stdout: str) -> Any:
     return {"raw_output": text}
 
 
+def _looks_like_run_argument_error(stderr: str) -> bool:
+    text = (stderr or "").lower()
+    markers = [
+        "no such option",
+        "missing option",
+        "missing argument",
+        "got unexpected extra argument",
+        "invalid value for",
+    ]
+    return any(marker in text for marker in markers)
+
+
+def _build_run_arg_attempts(help_text: str, input_data: Dict[str, Any]) -> list[list[str]]:
+    lowered = (help_text or "").lower()
+    payload_json = json.dumps(input_data)
+    attempts: list[list[str]] = []
+
+    def add(args: list[str]) -> None:
+        if args not in attempts:
+            attempts.append(args)
+
+    option_map = [
+        ("--input", payload_json),
+        ("--payload", payload_json),
+        ("--data", payload_json),
+        ("--json", payload_json),
+        ("--task", str(input_data.get("task", "")) if "task" in input_data else ""),
+        ("--query", str(input_data.get("query", "")) if "query" in input_data else ""),
+        ("--question", str(input_data.get("question", "")) if "question" in input_data else ""),
+        ("--prompt", str(input_data.get("prompt", "")) if "prompt" in input_data else ""),
+        ("--text", str(input_data.get("text", "")) if "text" in input_data else ""),
+    ]
+
+    for opt, val in option_map:
+        if val and opt in lowered:
+            add(["run", opt, val])
+
+    # Fallbacks when help output is unavailable/inconclusive or option probing still fails.
+    add(["run", "--input", payload_json])
+    add(["run", payload_json])
+    if "task" in input_data:
+        add(["run", str(input_data["task"])])
+        add(["run", "--task", str(input_data["task"])])
+
+    return attempts
+
+
 def _run_hive_orchestrated_agent(agent_name: str, input_data: Dict[str, Any]) -> Any:
     # Real HIVE execution path: run exported package as a module.
-    cmd = [
-        "uv",
-        "run",
-        "python",
-        "-m",
-        agent_name,
-        "run",
-        "--input",
-        json.dumps(input_data),
-    ]
+    prefix = ["uv", "run", "python", "-m", agent_name]
     env = os.environ.copy()
     existing_path = env.get("PYTHONPATH", "")
     exports_path = str(EXPORTS_DIR)
     env["PYTHONPATH"] = f"{exports_path}{os.pathsep}{existing_path}" if existing_path else exports_path
 
-    proc = subprocess.run(
-        cmd,
+    help_proc = subprocess.run(
+        prefix + ["run", "--help"],
         cwd=str(Path(__file__).parent),
         env=env,
         capture_output=True,
         text=True,
-        timeout=int(os.getenv("HIVE_RUN_TIMEOUT_SECONDS", "300")),
+        timeout=45,
     )
-    if proc.returncode != 0:
+    help_text = f"{help_proc.stdout}\n{help_proc.stderr}"
+    attempts = _build_run_arg_attempts(help_text, input_data)
+
+    last_error = ""
+    timeout_seconds = int(os.getenv("HIVE_RUN_TIMEOUT_SECONDS", "300"))
+    for args in attempts:
+        proc = subprocess.run(
+            prefix + args,
+            cwd=str(Path(__file__).parent),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+        )
+        if proc.returncode == 0:
+            return _extract_json_from_stdout(proc.stdout)
+
         err = (proc.stderr or proc.stdout or "").strip()
+        last_error = err
+
+        if _looks_like_run_argument_error(err):
+            continue
+
         raise HTTPException(
             500,
             f"HIVE orchestration run failed for '{agent_name}'. {err}"
         )
-    return _extract_json_from_stdout(proc.stdout)
+
+    raise HTTPException(
+        500,
+        (
+            f"HIVE orchestration run failed for '{agent_name}' after trying multiple run argument formats. "
+            f"Last error: {last_error or 'unknown error'}"
+        ),
+    )
 
 @app.get("/health")
 async def health_check():
